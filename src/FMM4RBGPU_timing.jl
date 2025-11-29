@@ -2,6 +2,7 @@ module FMM4RBGPU_timing
 using LinearAlgebra
 using StaticArrays
 using CUDA
+using Dates
 
 export Particles, Beam
 
