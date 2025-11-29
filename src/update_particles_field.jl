@@ -334,4 +334,4 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     return TimingResults(collection_time, M2L_transfer_time, M2L_computation_time, M2L_time, P2P_transfer_time, P2P_computation_time, P2P_time, Update_time)
 end
 
-end # module
+#end # module
