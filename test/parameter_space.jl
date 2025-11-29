@@ -26,7 +26,7 @@ end
 
 # Before your main loop, test what the functions actually return
 function test_function_outputs()
-    N = 1000  # Small test
+    N = 100000  # Small test
     positions = rand(3, N)
     momenta = zeros(3, N)
     beam = Particles(; pos=positions, mom=momenta, charge=-1.0, mass=1.0)

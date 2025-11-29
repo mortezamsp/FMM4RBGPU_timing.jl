@@ -1,10 +1,10 @@
 using Revise
 using FMM4RBGPU_timing
 using CUDA
-using Dates  # Import the Dates module
+using Dates  
 
 # Number of particles
-const N = 32000
+const N = 1000000
 
 # Create position and momentum distribution of N particles
 positions = rand(3, N)
@@ -22,17 +22,17 @@ const n = 4
 const N0 = 125  
 const eta = 0.5
 
+
+start_time = Dates.now()
+update_particles_field!(beam, FMM(eta=eta, N0=N0, n=n); lambda=1.0)
+end_time = Dates.now()
+cpu_time = end_time - start_time
+println("FMM time: $cpu_time")
+
+
 # Measure execution time
 start_time = Dates.now()
 update_particles_field!(beam, FMMGPU(eta=eta, N0=N0, n=n); lambda=1.0)
 end_time = Dates.now()
 gpu_time = end_time - start_time
 println("FMMGPU time: $gpu_time")  # Corrected variable name to gpu_time
-
-
-start_time = Dates.now()
-update_particles_field!(beam, FMM(eta=eta, N0=N0, n=n); lambda=1.0)
-end_time = Dates.now()
-gpu_time = end_time - start_time
-println("FMMGPU time: $gpu_time")  # Corrected variable name to gpu_time
-

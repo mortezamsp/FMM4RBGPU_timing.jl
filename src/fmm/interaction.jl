@@ -86,12 +86,12 @@ function interact!(mp::MacroParticles{I,T}, ct::ClusterTree{I,T}, itlists::Inter
 	start_time = Dates.now()
     M2L!(mp, ct, itlists.m2l_lists, itlists.nm2l; p_avg=p_avg)
     end_time = Dates.now()
-    M2L_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+    M2L_time = Float64(Dates.value(end_time - start_time)) 
 	
 	start_time = Dates.now()
 	P2P!(ct.particles, ct.parindices, ct.clusters, itlists.p2p_lists, itlists.np2p)
 	end_time = Dates.now()
-    P2P_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+    P2P_time = Float64(Dates.value(end_time - start_time)) 
 
 	return PartialTimingResults(M2L_time, P2P_time)
 end

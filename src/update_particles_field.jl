@@ -188,33 +188,27 @@ function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) wher
     (;n, N0, eta) = alg
 
     # Measure collection time
-    start_time = Dates.now()
     q = particles.charge
     N = particles.npar
     p_avg = sum(particles.momenta) / particles.npar
     g_avg = sqrt(1.0 + dot(p_avg, p_avg))
     stretch = SVector(1.0,1.0,g_avg)
-
     max_level = maxlevel(N, N0)
     ct = ClusterTree(particles; N0=N0, stretch=stretch)
+    println("ClusterTree created: $(length(ct.clusters.parlohis)) clusters")
     mp = MacroParticles(ct.clusters, n)
-    upwardpass!(mp, ct; max_level=max_level)
-    end_time = Dates.now()
-    collection_time = Float64(Dates.value(end_time - start_time)) / 1000.0
-
-    # M2L time
+    println("MacroParticles created")
+	
+	upwardpass!(mp, ct; max_level=max_level)
+    println("Upward pass completed")
+	
     start_time = Dates.now()
     itlists = InteractionLists(ct.clusters; stretch=stretch, eta=eta)
-    interact!(mp, ct, itlists; p_avg=p_avg)
-    end_time = Dates.now()
-    M2L_time = Float64(Dates.value(end_time - start_time)) / 1000.0
-
-    # P2P time
-    start_time = Dates.now()
+	end_time = Dates.now()
+    collection_time = Float64(Dates.value(end_time - start_time)) 
+	PartialTimingResults = interact!(mp, ct, itlists; p_avg=p_avg)
     downwardpass!(mp, ct; max_level=max_level)
-    end_time = Dates.now()
-    P2P_time = Float64(Dates.value(end_time - start_time)) / 1000.0
-
+    
     # Update time
     start_time = Dates.now()
     efields = particles.efields
@@ -225,9 +219,9 @@ function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) wher
         bfields[i] *= amp
     end
     end_time = Dates.now()
-    Update_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+    Update_time = Float64(Dates.value(end_time - start_time)) 
 
-    return TimingResults_CPU(collection_time, M2L_time, P2P_time, Update_time)
+    return TimingResults_CPU(collection_time, PartialTimingResults.M2L_time, PartialTimingResults.P2P_time, Update_time)
 end
 
 # FMM GPU method
@@ -238,7 +232,6 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     N = particles.npar
 
     # Collection time
-    start_time = Dates.now()
     d_pr_positions = CuArray(particles.positions)
     d_pr_momenta = CuArray(particles.momenta)
     d_pr_efields = CUDA.fill(SVector{3,T}(0.0,0.0,0.0),N)
@@ -265,8 +258,6 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     max_level = maxlevel(N,N0)
     lfindices = leafindexrange(N, N0)
     nleafnode = length(lfindices)
-    end_time = Dates.now()
-    collection_time = Float64(Dates.value(end_time - start_time)) / 1000.0
 
     # Upward pass (placeholder)
     @cuda blocks=nleafnode threads=(n+1,n+1,n+1) gpu_P2M!(d_pr_positions, d_pr_momenta, d_ct_parindices, d_mp_gammas, d_mp_momenta, Val(n), d_cl_bboxes, d_cl_parlohis, lfindices)
@@ -277,20 +268,25 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
         @cuda blocks=nc_in_level threads=(n+1,n+1,n+1) gpu_M2M!(d_mp_gammas, d_mp_momenta, Val(n), d_cl_bboxes, d_cl_children, nodeindicies)
     end
 
-    # M2L transfer time
+	#extracting the interactions list
     start_time = Dates.now()
     itlists_gpu = InteractionListsGPU(ct.clusters; stretch=stretch, eta=eta)
+	end_time = Dates.now()
+    collection_time = Float64(Dates.value(end_time - start_time))
+	
+    # M2L transfer time
+    start_time = Dates.now()
     d_m2l_lists = CuArray(itlists_gpu.m2l_lists)
     d_m2l_lists_ptrs = CuArray(itlists_gpu.m2l_lists_ptrs)
     nm2lgroup = itlists_gpu.nm2lgroup
     end_time = Dates.now()
-    M2L_transfer_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+    M2L_transfer_time = Float64(Dates.value(end_time - start_time)) 
 
     # M2L computation time
     start_time = Dates.now()
     @cuda blocks=nm2lgroup threads=(n+1,n+1,n+1) gpu_M2L!(d_mp_gammas, d_mp_momenta, d_mp_efields, d_mp_bfields, Val(n), d_cl_bboxes, d_m2l_lists, d_m2l_lists_ptrs, p_avg)
     end_time = Dates.now()
-    M2L_computation_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+    M2L_computation_time = Float64(Dates.value(end_time - start_time)) 
     M2L_time = M2L_transfer_time + M2L_computation_time
 
     # P2P transfer time
@@ -299,13 +295,13 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     d_p2p_lists_ptrs = CuArray(itlists_gpu.p2p_lists_ptrs)
     np2pgroup = itlists_gpu.np2pgroup
     end_time = Dates.now()
-    P2P_transfer_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+    P2P_transfer_time = Float64(Dates.value(end_time - start_time)) 
 
     # P2P computation time
     start_time = Dates.now()
     @cuda blocks=np2pgroup threads=N0 gpu_P2P!(d_pr_positions, d_pr_momenta, d_pr_efields, d_pr_bfields, d_ct_parindices, d_cl_parlohis, Val(N0), d_p2p_lists, d_p2p_lists_ptrs)
     end_time = Dates.now()
-    P2P_computation_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+    P2P_computation_time = Float64(Dates.value(end_time - start_time))
     P2P_time = P2P_transfer_time + P2P_computation_time
 
     # Downward pass (placeholder)
@@ -325,7 +321,7 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     copyto!(particles.efields, d_pr_efields)
     copyto!(particles.bfields, d_pr_bfields)
     end_time = Dates.now()
-    Update_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+    Update_time = Float64(Dates.value(end_time - start_time))
 
     return TimingResults(collection_time, M2L_transfer_time, M2L_computation_time, M2L_time, P2P_transfer_time, P2P_computation_time, P2P_time, Update_time)
 end
