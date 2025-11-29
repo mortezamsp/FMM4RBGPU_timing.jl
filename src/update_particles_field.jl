@@ -79,19 +79,7 @@ function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) wher
 	return TimingResults_CPU(collection_time, PartialTimingResults.M2L_time, PartialTimingResults.P2P_time, Update_time)
 end
 
-function update_particles_field!(particles::Particles{T}, alg::FMMGPU{T}; lambda) where {T}
-	
-	struct TimingResults
-		collection_time::Float64
-		M2L_transfer_time::Float64
-		M2L_computation_time::Float64
-		M2L_time::Float64
-		P2P_transfer_time::Float64
-		P2P_computation_time::Float64
-		P2P_time::Float64
-		Update_time::Float64
-	end
-	
+function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) where {T}	
     (;n, N0, eta) = alg
 
     q = particles.charge
@@ -186,10 +174,19 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU{T}; lambda
     copyto!(particles.bfields, d_pr_bfields)
 	end_time = Dates.now()
     Update_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
-	
-	return TimingResults(
-				collection_time, 
-				M2L_transfer_time, M2L_computation_time, M2L_time = M2L_transfer_time + M2L_computation_time, 
-				P2P_transfer_time, P2P_computation_time, P2P_time = P2P_transfer_time + P2P_computation_time, 
-				Update_time)
+		
+	struct TimingResults
+		collection_time::Float64
+		M2L_transfer_time::Float64
+		M2L_computation_time::Float64
+		M2L_time::Float64
+		P2P_transfer_time::Float64
+		P2P_computation_time::Float64
+		P2P_time::Float64
+		Update_time::Float64
+	end
+
+	M2L_time = M2L_transfer_time + M2L_computation_time
+	P2P_time = P2P_transfer_time + P2P_computation_time
+	return TimingResults(collection_time, M2L_transfer_time, M2L_computation_time, M2L_time, P2P_transfer_time, P2P_computation_time, P2P_time, Update_time)
 end
