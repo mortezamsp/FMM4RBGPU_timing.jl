@@ -1,4 +1,4 @@
-name = "FMM4RBGPU"
+name = "FMM4RBGPU_timing"
 uuid = "6188f75b-cc19-42af-84de-782f8f05992b"
 authors = ["Yi-Kai Kan <tw.ykkan@gmail.com> and contributors"]
 version = "0.1.0"
