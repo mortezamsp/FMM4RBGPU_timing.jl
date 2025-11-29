@@ -1,4 +1,4 @@
-module FMM4RBGPU
+module FMM4RBGPU_timing
 using LinearAlgebra
 using StaticArrays
 using CUDA
@@ -14,3 +14,4 @@ include("update_particles_field.jl")
 
 
 end
+
