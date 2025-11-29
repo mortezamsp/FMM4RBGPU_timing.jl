@@ -5,29 +5,30 @@ using Dates
 using DataFrames
 using CSV
 
+# Define TimingResults structs based on what the package actually returns
+struct TimingResults
+	collection_time::Float64
+	M2L_transfer_time::Float64
+	M2L_computation_time::Float64
+	M2L_time::Float64
+	P2P_transfer_time::Float64
+	P2P_computation_time::Float64
+	P2P_time::Float64
+	Update_time::Float64
+end
+
+struct TimingResults_CPU
+	collection_time::Float64
+	M2L_time::Float64
+	P2P_time::Float64
+	Update_time::Float64
+end
+
 function main()
     ## Let's first check what's available
     #println("Available methods for update_particles_field!:")
     #println(methods(update_particles_field!))
 
-    # Define TimingResults structs based on what the package actually returns
-    struct TimingResults
-        collection_time::Float64
-        M2L_transfer_time::Float64
-        M2L_computation_time::Float64
-        M2L_time::Float64
-        P2P_transfer_time::Float64
-        P2P_computation_time::Float64
-        P2P_time::Float64
-        Update_time::Float64
-    end
-
-    struct TimingResults_CPU
-        collection_time::Float64
-        M2L_time::Float64
-        P2P_time::Float64
-        Update_time::Float64
-    end
 
     # Parameters (using smaller values for testing)
     N_values = [2^16]  # Start with just one value for testing
