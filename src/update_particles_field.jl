@@ -158,9 +158,6 @@ function ncluster(N, N0)
     return 2 * N ÷ N0
 end
 
-function nodeindexrangeat(level)
-    return (2^level):(2^(level+1)-1)
-end
 
 # Existing BruteForce method
 function update_particles_field!(particles::Particles{T}, alg::BruteForce; lambda) where {T}
