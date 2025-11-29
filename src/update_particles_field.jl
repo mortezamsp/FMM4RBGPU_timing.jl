@@ -38,7 +38,8 @@ function update_particles_field!(particles::Particles{T}, alg::BruteForce; lambd
 end
 
 function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) where {T}
-    (;n, N0, eta) = alg
+    
+	(;n, N0, eta) = alg
 
     q = particles.charge
     N = particles.npar
@@ -50,20 +51,47 @@ function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) wher
     ct = ClusterTree(particles; N0=N0, stretch=stretch)
     mp = MacroParticles(ct.clusters, n)
     upwardpass!(mp, ct; max_level=max_level)
+    start_time = Dates.now()
     itlists = InteractionLists(ct.clusters; stretch=stretch, eta=eta)
-    interact!(mp, ct, itlists; p_avg=p_avg)
-    downwardpass!(mp, ct; max_level=max_level)
+    end_time = Dates.now()
+    collection_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+	PartialTimingResults = interact!(mp, ct, itlists; p_avg=p_avg)
+	downwardpass!(mp, ct; max_level=max_level)
 
     efields = particles.efields
     bfields = particles.bfields
     amp = 2.8179403699772166e-15 * q / lambda
+	start_time = Dates.now()
     @inbounds for i in 1:N
         efields[i] *= amp
         bfields[i] *= amp
     end
+	end_time = Dates.now()
+    Update_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+	
+	struct TimingResults_CPU
+		collection_time::Float64
+		M2L_time::Float64
+		P2P_time::Float64
+		Update_time::Float64
+	end
+	
+	return TimingResults_CPU(collection_time, M2L_time, P2P_time, Update_time)
 end
 
 function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) where {T}
+	
+	struct TimingResults
+		collection_time::Float64
+		M2L_transfer_time::Float64
+		M2L_computation_time::Float64
+		M2L_time::Float64
+		P2P_transfer_time::Float64
+		P2P_computation_time::Float64
+		P2P_time::Float64
+		Update_time::Float64
+	end
+	
     (;n, N0, eta) = alg
 
     q = particles.charge
@@ -98,51 +126,70 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     nleafnode = length(lfindices)
 
     # upwardpass
-    @cuda blocks=nleafnode threads=(n+1,n+1,n+1) gpu_P2M!(d_pr_positions, d_pr_momenta, d_ct_parindices,
-                                                            d_mp_gammas, d_mp_momenta, Val(n),
-                                                            d_cl_bboxes, d_cl_parlohis, lfindices)
+    @cuda blocks=nleafnode threads=(n+1,n+1,n+1) gpu_P2M!(d_pr_positions, d_pr_momenta, d_ct_parindices, d_mp_gammas, d_mp_momenta, Val(n), d_cl_bboxes, d_cl_parlohis, lfindices)
 
     for l in (max_level-1):-1:0
         nodeindicies = nodeindexrangeat(l)
         nc_in_level = 2^l
-        @cuda blocks=nc_in_level threads=(n+1,n+1,n+1) gpu_M2M!(d_mp_gammas, d_mp_momenta, Val(n),
-                                                            d_cl_bboxes, d_cl_children, nodeindicies)
+        @cuda blocks=nc_in_level threads=(n+1,n+1,n+1) gpu_M2M!(d_mp_gammas, d_mp_momenta, Val(n), d_cl_bboxes, d_cl_children, nodeindicies)
     end
 
     # dual-tree traversal
+	start_time = Dates.now()
     itlists_gpu = InteractionListsGPU(ct.clusters; stretch=stretch, eta=eta)
+    end_time = Dates.now()
+    collection_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+	
+	#M2L data transfer
+	start_time = Dates.now()
     d_m2l_lists = CuArray(itlists_gpu.m2l_lists)
     d_m2l_lists_ptrs = CuArray(itlists_gpu.m2l_lists_ptrs)
     nm2lgroup = itlists_gpu.nm2lgroup
-
-    # interaction
-    @cuda blocks=nm2lgroup threads=(n+1,n+1,n+1) gpu_M2L!(d_mp_gammas, d_mp_momenta, d_mp_efields, d_mp_bfields, Val(n),
-                                                        d_cl_bboxes, d_m2l_lists, d_m2l_lists_ptrs,
-                                                        p_avg)
-
+    end_time = Dates.now()
+    M2L_transfer_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+	
+    #M2L interaction
+	start_time = Dates.now()
+    @cuda blocks=nm2lgroup threads=(n+1,n+1,n+1) gpu_M2L!(d_mp_gammas, d_mp_momenta, d_mp_efields, d_mp_bfields, Val(n), d_cl_bboxes, d_m2l_lists, d_m2l_lists_ptrs, p_avg)
+    end_time = Dates.now()
+    M2L_computation_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+	
+	#P2P data transfer
+	start_time = Dates.now()
     d_p2p_lists = CuArray(itlists_gpu.p2p_lists)
     d_p2p_lists_ptrs = CuArray(itlists_gpu.p2p_lists_ptrs)
     np2pgroup = itlists_gpu.np2pgroup
+    end_time = Dates.now()
+    P2P_transfer_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
 
-    @cuda blocks=np2pgroup threads=N0 gpu_P2P!(d_pr_positions, d_pr_momenta, d_pr_efields, d_pr_bfields, d_ct_parindices,
-                                            d_cl_parlohis, Val(N0), d_p2p_lists, d_p2p_lists_ptrs)
+	#P2P computation
+	start_time = Dates.now()
+    @cuda blocks=np2pgroup threads=N0 gpu_P2P!(d_pr_positions, d_pr_momenta, d_pr_efields, d_pr_bfields, d_ct_parindices, d_cl_parlohis, Val(N0), d_p2p_lists, d_p2p_lists_ptrs)
+    end_time = Dates.now()
+    P2P_computation_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
 
     # downwardpass
     for l in 1:max_level
         nodeindicies = nodeindexrangeat(l)
         nc_in_level = 2^l
-        @cuda blocks=nc_in_level threads=(n+1,n+1,n+1) gpu_L2L!(d_mp_efields, d_mp_bfields, Val(n),
-                                                                d_cl_bboxes, d_cl_parents, nodeindicies)
+        @cuda blocks=nc_in_level threads=(n+1,n+1,n+1) gpu_L2L!(d_mp_efields, d_mp_bfields, Val(n), d_cl_bboxes, d_cl_parents, nodeindicies)
     end
 
-    @cuda blocks=nleafnode threads=N0 gpu_L2P!(d_pr_positions, d_pr_efields, d_pr_bfields, d_ct_parindices,
-                                                d_mp_efields, d_mp_bfields, Val(n),
-                                                d_cl_bboxes, d_cl_parlohis, lfindices)
+    @cuda blocks=nleafnode threads=N0 gpu_L2P!(d_pr_positions, d_pr_efields, d_pr_bfields, d_ct_parindices, d_mp_efields, d_mp_bfields, Val(n), d_cl_bboxes, d_cl_parlohis, lfindices)
 
     amp = 2.8179403699772166e-15 * q / lambda
     d_pr_efields .*= amp
     d_pr_bfields .*= amp
 
+	start_time = Dates.now()
     copyto!(particles.efields, d_pr_efields)
     copyto!(particles.bfields, d_pr_bfields)
+	end_time = Dates.now()
+    Update_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
+	
+	return TimingResults(
+				collection_time, 
+				M2L_transfer_time, M2L_computation_time, M2L_time = M2L_transfer_time + M2L_computation_time, 
+				P2P_transfer_time, P2P_computation_time, P2P_time = P2P_transfer_time + P2P_computation_time, 
+				Update_time)
 end
