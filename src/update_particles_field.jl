@@ -18,25 +18,6 @@ end
     eta::T
 end
 
-function update_particles_field!(particles::Particles{T}, alg::BruteForce; lambda) where {T}
-    q = particles.charge
-    npar = particles.npar
-    @inbounds for i in 1:npar
-        particles.efields[i] = SVector(0.0, 0.0, 0.0)
-        particles.bfields[i] = SVector(0.0, 0.0, 0.0)
-        xi = particles.positions[i]
-        amp = 2.8179403699772166e-15 * q / lambda
-        for j in 1:npar
-            xj = particles.positions[j]
-            pj = particles.momenta[j]
-            R = xi-xj
-            Kij = R / sqrt(dot(R, R) + dot(pj, R)^2 + eps())^3
-            particles.efields[i] += amp * sqrt(1.0 + dot(pj, pj)) * Kij
-            particles.bfields[i] += amp * cross(pj, Kij)
-        end
-    end
-end
-
 function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) where {T}
     
 	(;n, N0, eta) = alg

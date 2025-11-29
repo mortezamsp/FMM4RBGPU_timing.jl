@@ -24,6 +24,11 @@ struct TimingResults_CPU
     Update_time::Float64
 end
 
+struct PartialTimingResults
+	M2L_time::Float64
+	P2P_time::Float64
+end
+	
 # Parameters
 N_values = [2^16, 2^17, 2^18, 2^19, 2^20]
 n_values = [3, 4, 5, 6, 7]
