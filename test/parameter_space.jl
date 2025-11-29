@@ -65,28 +65,6 @@ function main()
 
     experiment_num = 1
 
-    # Test function to see what works
-    function test_single_run()
-        N = 65536
-        println(N)
-        positions = rand(3, N)
-        momenta = zeros(3, N)
-        beam = Particles(; pos=positions, mom=momenta, charge=-1.0, mass=1.0)
-        
-        println("Testing FMMGPU...")
-        try
-            result = update_particles_field!(beam, FMMGPU(eta=0.5, N0=64, n=3); lambda=1.0)
-            println("FMMGPU success: ", typeof(result))
-            return true
-        catch e
-            println("FMMGPU failed: ", e)
-            return false
-        end
-    end
-
-    ## Run test
-    #test_single_run()
-
     # If FMMGPU doesn't work, let's try a fallback approach
     function safe_run_experiment(experiment_num, N, n, eta)
         println("Experiment $experiment_num: Setting up N=$N, n=$n, N0=$((n+1)^3), eta=$eta")

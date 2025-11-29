@@ -13,40 +13,24 @@ export Particles
 
 import Base.@kwdef
 
-struct Particles{T, SV <: AbstractArray{SVector{3,T},1}}
-    positions::SV
-    momenta::SV
-    efields::SV
-    bfields::SV
-    charge::T
-    mass::T
-    npar::Int
-end
-
-# Constructor for 1D arrays of SVectors
-function Particles(positions::AbstractArray{SVector{3,T},1}, momenta::AbstractArray{SVector{3,T},1}, 
-                  charge::T, mass::T) where {T}
-    npar = length(positions)
-    efields = zeros(SVector{3,T}, npar)
-    bfields = zeros(SVector{3,T}, npar)
-    return Particles(positions, momenta, efields, bfields, charge, mass, npar)
-end
-
-# Constructor for 2D arrays
-function Particles(pos::AbstractMatrix{T}, mom::AbstractMatrix{T}, charge::T, mass::T) where {T}
-    npar = size(pos, 2)
-    positions = [SVector{3,T}(pos[:, i]) for i in 1:npar]
-    momenta = [SVector{3,T}(mom[:, i]) for i in 1:npar]
-    efields = zeros(SVector{3,T}, npar)
-    bfields = zeros(SVector{3,T}, npar)
-    return Particles(positions, momenta, efields, bfields, charge, mass, npar)
-end
-
-# Keep your keyword constructor for backward compatibility
-function Particles(; pos, mom, charge, mass)
-    return Particles(pos, mom, charge, mass)
-end
-
+## Particle structure
+#struct Particles{T, SV <: AbstractArray{SVector{3,T},1}}
+#    positions::SV
+#    momenta::SV
+#    efields::SV
+#    bfields::SV
+#    charge::T
+#    mass::T
+#    npar::Int
+#end
+#
+#function Particles(; pos, mom, charge, mass)
+#    T = eltype(pos)
+#    npar = size(pos, 2)
+#    efields = zeros(SVector{3,T}, npar)
+#    bfields = zeros(SVector{3,T}, npar)
+#    return Particles(pos, mom, efields, bfields, charge, mass, npar)
+#end
 
 # Algorithm structures
 struct BruteForce end
