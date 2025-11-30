@@ -29,7 +29,8 @@ struct TimingResults_CPU
 	max_level::Int
 	num_clus::Int
 end
-
+TimingResults_CPU() = TimingResults_CPU(0.0, 0.0, 0.0, 0.0, 0, 0)
+		
 function main()
     ## Let's first check what's available
     #println("Available methods for update_particles_field!:")
@@ -98,9 +99,10 @@ function main()
 			start_time = Dates.now()
 			gpu_timing_results = update_particles_field!(beam, FMMGPU(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
 			end_time = Dates.now()
-			total_gpu_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+			total_gpu_time = Float64(Dates.value(end_time - start_time)) 
 			gpu_success = true
-			
+			println("$total_gpu_time");
+
 			# Validate GPU results
 			if gpu_timing_results === nothing
 				println("  GPU returned nothing")
@@ -115,20 +117,25 @@ function main()
 		end
 		
 		# Recreate beam for CPU (important to start fresh)
+		println("regenerating beams...");
 		beam_cpu = Particles(; pos=positions, mom=momenta, charge=-1.0, mass=1.0)
+		println("done");
 		
 		# CPU execution time
-		cpu_timing_results = nothing
+		#cpu_timing_results = nothing
+		cpu_timing_results = TimingResults_CPU()
 		cpu_time = 0.0
 		cpu_success = false
+		
 		
 		try
 			println("  Starting CPU execution...")
 			start_time = Dates.now()
-			cpu_timing_results = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
+			#cpu_timing_results = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
 			end_time = Dates.now()
-			cpu_time = Float64(Dates.value(end_time - start_time)) / 1000.0
+			cpu_time = Float64(Dates.value(end_time - start_time)) 
 			cpu_success = true
+			println("$cpu_time")
 			
 			# Validate CPU results
 			if cpu_timing_results === nothing
@@ -167,9 +174,9 @@ function main()
 					eta = eta,
 					max_level = cpu_timing_results.max_level,
 					num_clus = cpu_timing_results.num_clus,
-					min_nei = gpu_timing_results.min_nei,
-					mean_nei = gpu_timing_results.mean_nei,
-					max_nei = gpu_timing_results.max_nei,
+					min_nei = gpu_timing_results.min_n,
+					mean_nei = gpu_timing_results.mean_n,
+					max_nei = gpu_timing_results.max_n,
 					gpu_time = total_gpu_time,
 					cpu_time = cpu_time,
 					speedup = speedup,
