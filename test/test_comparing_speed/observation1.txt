@@ -1,2 +1,0 @@
-gpu data collection for p2p and m2l in experiments, could be divided into two totally different sets!!!
-is it timing problem, or device problem? should i seperate them?

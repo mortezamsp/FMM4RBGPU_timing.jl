@@ -1,5 +1,0 @@
-parameter_space.jl >> fmm_experiment_results.csv	gpu test
-parameter_space2.jl >> fmm_experiment_results_2.csv	cpu test
-
-there is a problem about cpu test, i don't know it. it runs too slow.
-therefore i run cpu test with the main code, only for comparing speedups.
