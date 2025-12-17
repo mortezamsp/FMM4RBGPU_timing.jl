@@ -1,11 +1,5 @@
-using Dates
 export M2L!, P2P!, interact!
-
-	
-struct PartialTimingResults
-	M2L_time::Int
-	P2P_time::Int
-end
+import Dates
 
 function M2L!(mp::MacroParticles{I,T}, ct::ClusterTree{I,T}, m2l_lists::Vector{Tuple{I,I}}, nm2l::I; p_avg::SVector{3,T}) where {I,T}
     n = mp.n
@@ -82,16 +76,14 @@ function P2P!(particles::Particles{T}, parindices::Vector{Int}, clusters::Cluste
 end
 
 function interact!(mp::MacroParticles{I,T}, ct::ClusterTree{I,T}, itlists::InteractionLists{I}; p_avg) where {I,T}
-    
-	start_time = Dates.now()
-    M2L!(mp, ct, itlists.m2l_lists, itlists.nm2l; p_avg=p_avg)
-    end_time = Dates.now()
-    M2L_time = end_time - start_time
-	
-	start_time = Dates.now()
+    start_time = time_ns()
+	M2L!(mp, ct, itlists.m2l_lists, itlists.nm2l; p_avg=p_avg)
+    end_time = time_ns()
+	M2L_time = end_time - start_time
+	start_time = time_ns()
 	P2P!(ct.particles, ct.parindices, ct.clusters, itlists.p2p_lists, itlists.np2p)
-	end_time = Dates.now()
-    P2P_time = end_time - start_time
-
-	return PartialTimingResults(M2L_time, P2P_time)
+	end_time = time_ns()
+	P2P_time = end_time - start_time
+	println("P2Ptime = $P2P_time")
+	return M2L_time, P2P_time
 end

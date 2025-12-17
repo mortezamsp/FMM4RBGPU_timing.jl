@@ -1,25 +1,24 @@
-# More flexible particle structure
-struct Particles{T}
-    positions::AbstractArray{SVector{3,T},1}
-    momenta::AbstractArray{SVector{3,T},1}
-    efields::AbstractArray{SVector{3,T},1}
-    bfields::AbstractArray{SVector{3,T},1}
+struct Particles{T,SV<:Vector{SVector{3,T}}}
+    npar::Int
     charge::T
     mass::T
-    npar::Int
+    positions::SV
+    momenta::SV
+    efields::SV
+    bfields::SV
 end
 
-function Particles(; pos, mom, charge, mass)
-    T = eltype(pos)
-    npar = size(pos, 2)
-    
-    # Convert 2D arrays to 1D arrays of SVectors
-    positions = [SVector{3,T}(pos[:, i]) for i in 1:npar]
-    momenta = [SVector{3,T}(mom[:, i]) for i in 1:npar]
-    efields = zeros(SVector{3,T}, npar)
-    bfields = zeros(SVector{3,T}, npar)
-    
-    return Particles(positions, momenta, efields, bfields, charge, mass, npar)
+function Particles(;pos::Matrix{T}, mom::Matrix{T}, charge=-1.0, mass=1.0) where {T}
+    @assert size(pos) == size(mom)
+    @assert size(pos)[1] == 3
+    npar = size(pos)[2]
+    new_pos = Vector{SVector{3,T}}(undef,npar)
+    new_mom = Vector{SVector{3,T}}(undef,npar)
+    for i in 1:npar
+        new_pos[i] = SVector{3,T}(pos[:,i])
+        new_mom[i] = SVector{3,T}(mom[:,i])
+    end
+    return Particles(npar, charge, mass, new_pos, new_mom, fill(SVector{3,T}(0,0,0),npar), fill(SVector{3,T}(0,0,0),npar))
 end
 
 # type alias for Particles

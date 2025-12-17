@@ -29,7 +29,7 @@ struct TimingResults_CPU
 	max_level::Int
 	num_clus::Int
 end
-TimingResults_CPU() = TimingResults_CPU(0.0, 0.0, 0.0, 0.0, 0, 0)
+TimingResults_CPU() = TimingResults_CPU(0, 0, 0, 0, 0, 0)
 		
 function main()
     ## Let's first check what's available
@@ -45,34 +45,34 @@ function main()
 
     # Initialize DataFrame
     df = DataFrame(
-        experiment_num = Int[],
-        N = Int[],
-        n = Int[],
-        N0 = Int[],
+        experiment_num = Int64[],
+        N = Int64[],
+        n = Int64[],
+        N0 = Int64[],
         eta = Float64[],
-		max_level = Int[],
-		num_clus = Int[],
-		min_nei = Int[],
+		max_level = Int64[],
+		num_clus = Int64[],
+		min_nei = Int64[],
 		mean_nei = Float64[],
-		max_nei = Int[],
-        gpu_time = Int[],
-        cpu_time = Int[],
+		max_nei = Int64[],
+        gpu_time = Int64[],
+        cpu_time = Int64[],
         speedup = Float64[],
         # GPU timing details
-        gpu_collection_time = Int[],
-        gpu_M2L_transfer_time = Int[],
-        gpu_M2L_computation_time = Int[],
-        gpu_M2L_time = Int[],
-        gpu_P2P_transfer_time = Int[],
-        gpu_P2P_computation_time = Int[],
-        gpu_P2P_time = Int[],
-        gpu_Update_time = Int[],
+        gpu_collection_time = Int64[],
+        gpu_M2L_transfer_time = Int64[],
+        gpu_M2L_computation_time = Int64[],
+        gpu_M2L_time = Int64[],
+        gpu_P2P_transfer_time = Int64[],
+        gpu_P2P_computation_time = Int64[],
+        gpu_P2P_time = Int64[],
+        gpu_Update_time = Int64[],
         # CPU timing details
-        cpu_collection_time = Int[],
-        cpu_M2L_time = Int[],
-        cpu_P2P_time = Int[],
-        cpu_Update_time = Int[],
-        total_gpu_time = Int[]
+        cpu_collection_time = Int64[],
+        cpu_M2L_time = Int64[],
+        cpu_P2P_time = Int64[],
+        cpu_Update_time = Int64[],
+        total_gpu_time = Int64[]
     )
 
     experiment_num = 1
@@ -91,14 +91,14 @@ function main()
 		
 		# Try GPU execution
 		gpu_success = false
-		total_gpu_time = 0.0
-		gpu_timing_results = nothing
+		total_gpu_time = 0
+		gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0)
 		
 		try
 			println("  Starting GPU execution...")
-			start_time = Dates.now()
+			start_time = time_ns()
 			gpu_timing_results = update_particles_field!(beam, FMMGPU(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
-			end_time = Dates.now()
+			end_time = time_ns()
 			total_gpu_time = end_time - start_time
 			gpu_success = true
 			println("$total_gpu_time");
@@ -113,7 +113,7 @@ function main()
 		catch e
 			println("  GPU execution failed: ", e)
 			# Create proper dummy timing results based on what type is expected
-			gpu_timing_results = TimingResults(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+			gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0)
 		end
 		
 		# Recreate beam for CPU (important to start fresh)
@@ -123,16 +123,16 @@ function main()
 		
 		# CPU execution time
 		#cpu_timing_results = nothing
-		cpu_timing_results = TimingResults_CPU()
+		cpu_timing_results = TimingResults_CPU(0, 0, 0, 0, 0, 0)
 		cpu_time = 0.0
 		cpu_success = false
 		
 		
 		try
 			println("  Starting CPU execution...")
-			start_time = Dates.now()
+			start_time = time_ns()
 			#cpu_timing_results = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
-			end_time = Dates.now()
+			end_time = time_ns()
 			cpu_time = end_time - start_time
 			cpu_success = true
 			println("$cpu_time")
@@ -147,11 +147,12 @@ function main()
 		catch e
 			println("  CPU execution failed: ", e)
 			# Create proper dummy timing results
-			cpu_timing_results = TimingResults_CPU(0.0, 0.0, 0.0, 0.0)
+			cpu_timing_results = TimingResults_CPU(0, 0, 0, 0, 0, 0)
 		end
 		
 		# Calculate speedup (if both succeeded)
-		speedup = (gpu_success && cpu_success && cpu_time > 0) ? cpu_time / total_gpu_time : 0.0
+		speedup = (gpu_success && cpu_success && cpu_time > 0) ? Float64(cpu_time) / Float64(total_gpu_time) : 0.0
+		#println("$speedup")
 		
 		return total_gpu_time, cpu_time, speedup, gpu_timing_results, cpu_timing_results, gpu_success
 	end
@@ -164,8 +165,10 @@ function main()
             N0 = (n + 1)^3
             
             for eta in eta_values
-                total_gpu_time, cpu_time, speedup, gpu_timing_results, cpu_timing_results, gpu_success = safe_run_experiment(experiment_num, N, n, eta)
+                total_gpu_time, cpu_time, speedup, gpu_timing_results, cpu_timing_results, gpu_success = safe_run_experiment(experiment_num, N, n, eta)                
+                println("Exp $experiment_num | N=$N | n=$n | N0=$N0 | eta=$eta | GPU: $(total_gpu_time)s | CPU: $(cpu_time)s | Speedup: $(round(speedup, digits=2))X")
                 
+				println("creating tupple...")
 				new_row = (
 					experiment_num = experiment_num,
 					N = N,
@@ -196,10 +199,9 @@ function main()
 					cpu_Update_time = cpu_timing_results.Update_time,
 					total_gpu_time = total_gpu_time
 				)
-                                
-                println("Exp $experiment_num | N=$N | n=$n | N0=$N0 | eta=$eta | GPU: $(round(total_gpu_time, digits=4))s | CPU: $(round(cpu_time, digits=4))s | Speedup: $(round(speedup, digits=2))X")
-                
+                println("adding to dataframe...")
                 push!(df, new_row)
+                println("inserting to csv file...")
                 CSV.write(filename, df)
                 
                 experiment_num += 1

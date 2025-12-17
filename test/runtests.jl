@@ -1,4 +1,4 @@
-using FMM4RBGPU_timing
+using FMM4RBGPU
 using Test
 using LinearAlgebra
 using StaticArrays
