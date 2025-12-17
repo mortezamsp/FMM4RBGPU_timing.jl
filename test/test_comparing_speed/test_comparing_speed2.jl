@@ -6,9 +6,9 @@ using DataFrames
 using CSV
 
 # Parameters
-N_values = [2^17, 2^18, 2^19, 2^20] # [2^16, 2^17, 2^18, 2^19, 2^20]
+N_values = [2^16, 2^17, 2^18, 2^19, 2^20]
 n_values = [3, 4, 5, 6, 7]
-eta_values = [0.2]#[0.35, 0.5, 0.65, 0.8, 0.95] #[0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
+eta_values = [0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
 filename = "fmm_experiment_results.csv"
 
 # Initialize or load existing DataFrame
