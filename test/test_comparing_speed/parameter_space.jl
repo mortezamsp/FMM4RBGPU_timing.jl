@@ -19,6 +19,8 @@ struct TimingResults
 	min_n::Int
 	mean_n::Float64
 	max_n::Int
+	m2l_size::Int
+	p2p_size::Int
 end
 
 struct TimingResults_CPU
@@ -92,7 +94,7 @@ function main()
 		# Try GPU execution
 		gpu_success = false
 		total_gpu_time = 0
-		gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0)
+		gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0)
 		
 		try
 			println("  Starting GPU execution...")
@@ -113,7 +115,7 @@ function main()
 		catch e
 			println("  GPU execution failed: ", e)
 			# Create proper dummy timing results based on what type is expected
-			gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0)
+			gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0)
 		end
 		
 		# Recreate beam for CPU (important to start fresh)
@@ -131,7 +133,7 @@ function main()
 		try
 			println("  Starting CPU execution...")
 			start_time = time_ns()
-			#cpu_timing_results = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
+			cpu_timing_results = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
 			end_time = time_ns()
 			cpu_time = end_time - start_time
 			cpu_success = true

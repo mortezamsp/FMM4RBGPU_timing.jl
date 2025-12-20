@@ -7,7 +7,7 @@ using CSV
 
 # Parameters
 N_values = [2^20]
-n_values = [3,4,5,6,7]
+n_values = [7,6,5,4,3]
 eta_values = [0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
 filename = "fmm_experiment_results_volume.csv"
 
@@ -113,7 +113,7 @@ function run_experiment(experiment_num, N, n, eta)
     end_time = Dates.now()
     gpu_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
     
-    return gpu_time, gpu_timing_results.m2l_size, gpu_timing_results.p2p_size
+    return gpu_time, gpu_timing_results[8], gpu_timing_results[9]
 end
 
 # Run remaining experiments
