@@ -141,7 +141,7 @@ for N in remaining_N_values
                 continue
             end
             
-            gpu_time, cpu_time, speedup, m2l_size, p2p_size = run_experiment(experiment_num, N, n, eta)
+            gpu_time, m2l_size, p2p_size = run_experiment(experiment_num, N, n, eta)
             
             # Create new row
             new_row = (
