@@ -1,15 +1,15 @@
 using Revise
-using FMM4RBGPU
+using FMM4RBGPU_timing
 using CUDA
 using Dates
 using DataFrames
 using CSV
 
 # Parameters
-N_values = [2^17, 2^18, 2^19, 2^20] # [2^16, 2^17, 2^18, 2^19, 2^20]
-n_values = [3, 4, 5, 6, 7]
-eta_values = [0.2]#[0.35, 0.5, 0.65, 0.8, 0.95] #[0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
-filename = "fmm_experiment_results.csv"
+N_values = [2^17]
+n_values = [4]
+eta_values = [0.1, 0.15, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1]
+filename = "fmm_experiment_results_eta.csv"
 
 # Initialize or load existing DataFrame
 if isfile(filename)
@@ -68,20 +68,9 @@ if isfile(filename)
             n = Int64[],
             N0 = Int64[],
             eta = Float64[],
-			E2_neighbors = Float64[], 
-			Level = Int[], 
-			Boxes = Int[],
             gpu_time = Float64[],
             cpu_time = Float64[],
-            speedup = Float64[],
-			cpu_M2L_time = Float64[], 
-			cpu_P2P_time = Float64[],
-			Data_collection_time = Float64[], 
-			M2L_data_transfer = Float64[], 
-			GPU_M2L_time = Float64[], 
-			P2P_data_transfer = Float64[], 
-			GPU_P2P_time = Float64[], 
-			update_time = Float64[]
+            speedup = Float64[]
         )
         global experiment_num = 1
         global remaining_N_values = N_values
@@ -97,20 +86,9 @@ else
         n = Int64[],
         N0 = Int64[],
         eta = Float64[],
-		E2_neighbors = Float64[], 
-		Level = Int[], 
-		Boxes = Int[],
         gpu_time = Float64[],
         cpu_time = Float64[],
-        speedup = Float64[],
-		cpu_M2L_time = Float64[], 
-		cpu_P2P_time = Float64[],
-		Data_collection_time = Float64[], 
-		M2L_data_transfer = Float64[], 
-		GPU_M2L_time = Float64[], 
-		P2P_data_transfer = Float64[], 
-		GPU_P2P_time = Float64[], 
-		update_time = Float64[]
+        speedup = Float64[]
     )
     global experiment_num = 1
     global remaining_N_values = N_values
@@ -131,25 +109,23 @@ function run_experiment(experiment_num, N, n, eta)
     
     # GPU execution time
     start_time = Dates.now()
-    res = update_particles_field!(beam, FMMGPU(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
+    update_particles_field!(beam, FMMGPU(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
     end_time = Dates.now()
     gpu_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
-    data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, avg_neis = res === nothing ? (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0) : res 
-	
+    
     # Recreate beam for CPU to ensure same initial conditions
     beam_cpu = Particles(; pos=positions, mom=momenta, charge=-1.0, mass=1.0)
     
     # CPU execution time
     start_time = Dates.now()
-    res = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
+    update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
     end_time = Dates.now()
     cpu_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
-    CPU_M2L_time, CPU_P2P_time, max_level, num_clus = res === nothing ? (0.0, 0.0, 0.0, 0.0) : res 
-	
+    
     # Calculate speedup
     speedup = cpu_time / gpu_time
     
-    return gpu_time, cpu_time, speedup, CPU_M2L_time, CPU_P2P_time, avg_neis, max_level, num_clus, data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time
+    return gpu_time, cpu_time, speedup
 end
 
 # Run remaining experiments
@@ -177,7 +153,7 @@ for N in remaining_N_values
                 continue
             end
             
-            gpu_time, cpu_time, speedup, CPU_M2L_time, CPU_P2P_time, avg_neis, max_level, num_clus, data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time = run_experiment(experiment_num, N, n, eta)
+            gpu_time, cpu_time, speedup = run_experiment(experiment_num, N, n, eta)
             
             # Create new row
             new_row = (
@@ -186,20 +162,9 @@ for N in remaining_N_values
                 n = n,
                 N0 = N0,
                 eta = eta,
-				E2_neighbors = avg_neis, 
-				Level = max_level, 
-				Boxes = num_clus,
                 gpu_time = gpu_time,
                 cpu_time = cpu_time,
-                speedup = speedup,
-				cpu_M2L_time = Float64(CPU_M2L_time) / 1e9, 
-				cpu_P2P_time = Float64(CPU_P2P_time) / 1e9,
-				Data_collection_time = Float64(data_collection_time) / 1e9, 
-				M2L_data_transfer = Float64(M2L_data_transfer) / 1e9, 
-				GPU_M2L_time = Float64(GPU_M2L_time) / 1e9, 
-				P2P_data_transfer = Float64(P2P_data_transfer) / 1e9, 
-				GPU_P2P_time = Float64(GPU_P2P_time) / 1e9, 
-				update_time = Float64(update_time) / 1e9
+                speedup = speedup
             )
             
             # Print results in raw text format

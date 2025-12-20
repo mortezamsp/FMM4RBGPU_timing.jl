@@ -121,6 +121,8 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     end_time = time_ns()
 	data_collection_time = end_time - start_time
 	avg_neis = itlists_gpu.avg_neis
+	m2l_size = length(itlists_gpu.m2l_lists)
+	p2p_size = length(itlists_gpu.p2p_lists)
 	
 	start_time = end_time
     d_m2l_lists = CuArray(itlists_gpu.m2l_lists)
@@ -172,5 +174,5 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
 	end_time = time_ns()
 	update_time = end_time - start_time
 	
-	return data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, avg_neis
+	return data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, avg_neis, m2l_size, p2p_size
 end
