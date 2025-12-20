@@ -69,8 +69,6 @@ if isfile(filename)
             N0 = Int64[],
             eta = Float64[],
             gpu_time = Float64[],
-            cpu_time = Float64[],
-            speedup = Float64[],
 			m2l_size = Float64[], 
 			p2p_size = Float64[]
         )
@@ -89,8 +87,6 @@ else
         N0 = Int64[],
         eta = Float64[],
         gpu_time = Float64[],
-        cpu_time = Float64[],
-        speedup = Float64[],
 		m2l_size = Float64[], 
 		p2p_size = Float64[]
     )
@@ -117,19 +113,7 @@ function run_experiment(experiment_num, N, n, eta)
     end_time = Dates.now()
     gpu_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
     
-    # Recreate beam for CPU to ensure same initial conditions
-    beam_cpu = Particles(; pos=positions, mom=momenta, charge=-1.0, mass=1.0)
-    
-    # CPU execution time
-    start_time = Dates.now()
-    update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
-    end_time = Dates.now()
-    cpu_time = Float64(Dates.value(end_time - start_time)) / 1000.0  # Convert to seconds
-    
-    # Calculate speedup
-    speedup = cpu_time / gpu_time
-    
-    return gpu_time, cpu_time, speedup, gpu_timing_results.m2l_size, gpu_timing_results.p2p_size
+    return gpu_time, gpu_timing_results.m2l_size, gpu_timing_results.p2p_size
 end
 
 # Run remaining experiments
@@ -167,14 +151,12 @@ for N in remaining_N_values
                 N0 = N0,
                 eta = eta,
                 gpu_time = gpu_time,
-                cpu_time = cpu_time,
-                speedup = speedup,
 				m2l_size = m2l_size,
 				p2p_size = p2p_size
             )
             
             # Print results in raw text format
-            println("Exp $experiment_num | N=$N | n=$n | N0=$N0 | eta=$eta | GPU: $(round(gpu_time, digits=4))s | CPU: $(round(cpu_time, digits=4))s | Speedup: $(round(speedup, digits=2))X")
+            println("Exp $experiment_num | N=$N | n=$n | N0=$N0 | eta=$eta | GPU: $(round(gpu_time, digits=4))s ")
             
             # Add to DataFrame
             push!(df, new_row)
