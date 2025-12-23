@@ -1,0 +1,4 @@
+parameter_space was ran once for collecting detailed timinings, output: "fmm_experiment_results_runtime only.xlsx"
+	gpu kernel timings were wrong, ran again, but this time cpu functions timings are wrong, only gpu kernels are correct. output : 
+test_comparing_speed.jl is only for comparing GPU and CPU total execution time
+test_comparing_speed_volume.jl was run for collecting data volumes for GPU kernels. output: "fmm_experiment_results_volume.csv"

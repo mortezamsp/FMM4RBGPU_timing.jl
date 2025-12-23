@@ -11,14 +11,10 @@ struct TimingResults
     collection_time::Int
     M2L_transfer_time::Int
     M2L_computation_time::Int
-    M2L_time::Int
     P2P_transfer_time::Int
     P2P_computation_time::Int
-    P2P_time::Int
     Update_time::Int
 	min_n::Int
-	mean_n::Float64
-	max_n::Int
 	m2l_size::Int
 	p2p_size::Int
 end
@@ -42,7 +38,7 @@ function main()
     # Parameters (using smaller values for testing)
     N_values = [2^16, 2^17, 2^18, 2^19, 2^20]
 	n_values = [3, 4, 5, 6, 7]
-	eta_values = [0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
+	eta_values = [0.5, 0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
 	filename = "fmm_experiment_results.csv"
 
     # Initialize DataFrame
@@ -55,8 +51,8 @@ function main()
 		max_level = Int64[],
 		num_clus = Int64[],
 		min_nei = Int64[],
-		mean_nei = Float64[],
-		max_nei = Int64[],
+		#mean_nei = Float64[],
+		#max_nei = Int64[],
         gpu_time = Int64[],
         cpu_time = Int64[],
         speedup = Float64[],
@@ -94,37 +90,40 @@ function main()
 		# Try GPU execution
 		gpu_success = false
 		total_gpu_time = 0
-		gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0)
+		gpuresult = nothing
+		gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0)
 		
 		try
 			println("  Starting GPU execution...")
 			start_time = time_ns()
-			gpu_timing_results = update_particles_field!(beam, FMMGPU(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
+			gpuresult = update_particles_field!(beam, FMMGPU(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
 			end_time = time_ns()
 			total_gpu_time = end_time - start_time
 			gpu_success = true
 			println("$total_gpu_time");
 
 			# Validate GPU results
-			if gpu_timing_results === nothing
+			if gpuresult === nothing
 				println("  GPU returned nothing")
 				gpu_success = false
 			else
-				println("  GPU execution successful")#: $gpu_timing_results")
+				println("  GPU execution successful")#: $gpuresult")
 			end
 		catch e
 			println("  GPU execution failed: ", e)
 			# Create proper dummy timing results based on what type is expected
-			gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0)
+			gpuresult = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0)
 		end
 		
 		# Recreate beam for CPU (important to start fresh)
+		gpu_timing_results = TimingResults( 
+			Int(gpuresult[1]), Int(gpuresult[2]), Int(gpuresult[3]), Int(gpuresult[4]), Int(gpuresult[5]), Int(gpuresult[6]), Int(gpuresult[7]), Int(gpuresult[8]), Int(gpuresult[9]))
 		println("regenerating beams...");
 		beam_cpu = Particles(; pos=positions, mom=momenta, charge=-1.0, mass=1.0)
 		println("done");
 		
 		# CPU execution time
-		#cpu_timing_results = nothing
+		cpureslts = nothing
 		cpu_timing_results = TimingResults_CPU(0, 0, 0, 0, 0, 0)
 		cpu_time = 0.0
 		cpu_success = false
@@ -133,24 +132,25 @@ function main()
 		try
 			println("  Starting CPU execution...")
 			start_time = time_ns()
-			cpu_timing_results = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
+			cpureslts = update_particles_field!(beam_cpu, FMM(eta=eta, N0=(n+1)^3, n=n); lambda=1.0)
 			end_time = time_ns()
 			cpu_time = end_time - start_time
 			cpu_success = true
 			println("$cpu_time")
 			
 			# Validate CPU results
-			if cpu_timing_results === nothing
+			if cpureslts === nothing
 				println("  CPU returned nothing")
 				cpu_success = false
 			else
-				println("  CPU execution successful: $cpu_timing_results")
+				println("  CPU execution successful: $cpureslts")
 			end
 		catch e
 			println("  CPU execution failed: ", e)
 			# Create proper dummy timing results
-			cpu_timing_results = TimingResults_CPU(0, 0, 0, 0, 0, 0)
+			cpureslts = TimingResults_CPU(0, 0, 0, 0, 0, 0)
 		end
+		cpu_timing_results = TimingResults_CPU(Int(cpureslts[1]), Int(cpureslts[2]), Int(cpureslts[3]), Int(cpureslts[4]), Int(cpureslts[5]), Int(cpureslts[6]))
 		
 		# Calculate speedup (if both succeeded)
 		speedup = (gpu_success && cpu_success && cpu_time > 0) ? Float64(cpu_time) / Float64(total_gpu_time) : 0.0
@@ -180,8 +180,8 @@ function main()
 					max_level = cpu_timing_results.max_level,
 					num_clus = cpu_timing_results.num_clus,
 					min_nei = gpu_timing_results.min_n,
-					mean_nei = gpu_timing_results.mean_n,
-					max_nei = gpu_timing_results.max_n,
+					#mean_nei = gpu_timing_results.mean_n,
+					#max_nei = gpu_timing_results.max_n,
 					gpu_time = total_gpu_time,
 					cpu_time = cpu_time,
 					speedup = speedup,
@@ -189,10 +189,10 @@ function main()
 					gpu_collection_time = gpu_timing_results.collection_time,
 					gpu_M2L_transfer_time = gpu_timing_results.M2L_transfer_time,
 					gpu_M2L_computation_time = gpu_timing_results.M2L_computation_time,
-					gpu_M2L_time = gpu_timing_results.M2L_time,
+					gpu_M2L_time = gpu_timing_results.M2L_transfer_time + gpu_timing_results.M2L_computation_time,
 					gpu_P2P_transfer_time = gpu_timing_results.P2P_transfer_time,
 					gpu_P2P_computation_time = gpu_timing_results.P2P_computation_time,
-					gpu_P2P_time = gpu_timing_results.P2P_time,
+					gpu_P2P_time = gpu_timing_results.P2P_transfer_time + gpu_timing_results.P2P_computation_time,
 					gpu_Update_time = gpu_timing_results.Update_time,
 					# CPU timing details
 					cpu_collection_time = cpu_timing_results.collection_time,

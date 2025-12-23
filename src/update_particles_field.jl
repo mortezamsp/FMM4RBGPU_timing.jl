@@ -41,20 +41,24 @@ end
 function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) where {T}
     (;n, N0, eta) = alg
 
-    q = particles.charge
+    begin_time = time_ns()	
+	q = particles.charge
     N = particles.npar
     p_avg = sum(particles.momenta) / particles.npar
     g_avg = sqrt(1.0 + dot(p_avg, p_avg))
     stretch = SVector(1.0,1.0,g_avg)
-
     max_level = maxlevel(N, N0)
     ct = ClusterTree(particles; N0=N0, stretch=stretch)
     mp = MacroParticles(ct.clusters, n)
+	end_time = time_ns()
+	collection_time = end_time - begin_time
+	
     upwardpass!(mp, ct; max_level=max_level)
     itlists = InteractionLists(ct.clusters; stretch=stretch, eta=eta)
     M2L_time, P2P_time = interact!(mp, ct, itlists; p_avg=p_avg)
     downwardpass!(mp, ct; max_level=max_level)
 
+	begin_time = time_ns()
     efields = particles.efields
     bfields = particles.bfields
     amp = 2.8179403699772166e-15 * q / lambda
@@ -62,11 +66,12 @@ function update_particles_field!(particles::Particles{T}, alg::FMM; lambda) wher
         efields[i] *= amp
         bfields[i] *= amp
     end
+	end_time = time_ns()
+	update_time = end_time - begin_time
 	
-	max_level = maxlevel(N, N0)
     num_clus = length(ct.clusters.parlohis)
 	
-	return M2L_time, P2P_time, max_level, num_clus
+	return collection_time, M2L_time, P2P_time, update_time, max_level, num_clus
 end
 
 function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) where {T}
@@ -120,10 +125,12 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     itlists_gpu = InteractionListsGPU(ct.clusters; stretch=stretch, eta=eta)
     end_time = time_ns()
 	data_collection_time = end_time - start_time
-	avg_neis = itlists_gpu.avg_neis
+	#avg_neis = itlists_gpu.avg_neis
+	min_neis = itlists_gpu.min_neis
 	m2l_size = length(itlists_gpu.m2l_lists)
 	p2p_size = length(itlists_gpu.p2p_lists)
 	
+	CUDA.synchronize()
 	start_time = end_time
     d_m2l_lists = CuArray(itlists_gpu.m2l_lists)
     d_m2l_lists_ptrs = CuArray(itlists_gpu.m2l_lists_ptrs)
@@ -136,6 +143,7 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     @cuda blocks=nm2lgroup threads=(n+1,n+1,n+1) gpu_M2L!(d_mp_gammas, d_mp_momenta, d_mp_efields, d_mp_bfields, Val(n),
                                                         d_cl_bboxes, d_m2l_lists, d_m2l_lists_ptrs,
                                                         p_avg)
+	CUDA.synchronize()
 	end_time = time_ns()
 	GPU_M2L_time = end_time - start_time
 	
@@ -143,12 +151,13 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     d_p2p_lists = CuArray(itlists_gpu.p2p_lists)
     d_p2p_lists_ptrs = CuArray(itlists_gpu.p2p_lists_ptrs)
     np2pgroup = itlists_gpu.np2pgroup
-	end_time = time_ns()
 	P2P_data_transfer = end_time - start_time
+	end_time = time_ns()
 	
 	start_time = end_time
     @cuda blocks=np2pgroup threads=N0 gpu_P2P!(d_pr_positions, d_pr_momenta, d_pr_efields, d_pr_bfields, d_ct_parindices,
                                             d_cl_parlohis, Val(N0), d_p2p_lists, d_p2p_lists_ptrs)
+	CUDA.synchronize()
 	end_time = time_ns()
 	GPU_P2P_time = end_time - start_time
 	
@@ -168,11 +177,13 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     d_pr_efields .*= amp
     d_pr_bfields .*= amp
 
-    start_time = time_ns()
+    CUDA.synchronize()
+	start_time = time_ns()
 	copyto!(particles.efields, d_pr_efields)
     copyto!(particles.bfields, d_pr_bfields)
 	end_time = time_ns()
 	update_time = end_time - start_time
 	
-	return data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, avg_neis, m2l_size, p2p_size
+	#return data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, avg_neis, m2l_size, p2p_size
+	return data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, min_neis, m2l_size, p2p_size
 end
