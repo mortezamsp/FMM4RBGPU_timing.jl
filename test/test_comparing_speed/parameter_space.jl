@@ -14,7 +14,7 @@ struct TimingResults
     P2P_transfer_time::Int
     P2P_computation_time::Int
     Update_time::Int
-	min_n::Int
+	avg_neis::Float64
 	m2l_size::Int
 	p2p_size::Int
 end
@@ -38,7 +38,7 @@ function main()
     # Parameters (using smaller values for testing)
     N_values = [2^16, 2^17, 2^18, 2^19, 2^20]
 	n_values = [3, 4, 5, 6, 7]
-	eta_values = [0.5, 0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
+	eta_values = [0.2, 0.35, 0.5, 0.65, 0.8, 0.95]
 	filename = "fmm_experiment_results.csv"
 
     # Initialize DataFrame
@@ -50,7 +50,7 @@ function main()
         eta = Float64[],
 		max_level = Int64[],
 		num_clus = Int64[],
-		min_nei = Int64[],
+		min_nei = Float64[],
 		#mean_nei = Float64[],
 		#max_nei = Int64[],
         gpu_time = Int64[],
@@ -91,7 +91,7 @@ function main()
 		gpu_success = false
 		total_gpu_time = 0
 		gpuresult = nothing
-		gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0)
+		gpu_timing_results = TimingResults(0, 0, 0, 0, 0, 0, 0.0, 0, 0)
 		
 		try
 			println("  Starting GPU execution...")
@@ -112,12 +112,12 @@ function main()
 		catch e
 			println("  GPU execution failed: ", e)
 			# Create proper dummy timing results based on what type is expected
-			gpuresult = TimingResults(0, 0, 0, 0, 0, 0, 0, 0, 0)
+			gpuresult = TimingResults(0, 0, 0, 0, 0, 0, 0.0, 0, 0)
 		end
 		
 		# Recreate beam for CPU (important to start fresh)
 		gpu_timing_results = TimingResults( 
-			Int(gpuresult[1]), Int(gpuresult[2]), Int(gpuresult[3]), Int(gpuresult[4]), Int(gpuresult[5]), Int(gpuresult[6]), Int(gpuresult[7]), Int(gpuresult[8]), Int(gpuresult[9]))
+			Int(gpuresult[1]), Int(gpuresult[2]), Int(gpuresult[3]), Int(gpuresult[4]), Int(gpuresult[5]), Int(gpuresult[6]), Float64(gpuresult[7]), Int(gpuresult[8]), Int(gpuresult[9]))
 		println("regenerating beams...");
 		beam_cpu = Particles(; pos=positions, mom=momenta, charge=-1.0, mass=1.0)
 		println("done");
@@ -179,7 +179,7 @@ function main()
 					eta = eta,
 					max_level = cpu_timing_results.max_level,
 					num_clus = cpu_timing_results.num_clus,
-					min_nei = gpu_timing_results.min_n,
+					min_nei = gpu_timing_results.avg_neis, #min_nei = avg_nei = max_nei
 					#mean_nei = gpu_timing_results.mean_n,
 					#max_nei = gpu_timing_results.max_n,
 					gpu_time = total_gpu_time,

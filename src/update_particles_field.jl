@@ -125,8 +125,7 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
     itlists_gpu = InteractionListsGPU(ct.clusters; stretch=stretch, eta=eta)
     end_time = time_ns()
 	data_collection_time = end_time - start_time
-	#avg_neis = itlists_gpu.avg_neis
-	min_neis = itlists_gpu.min_neis
+	avg_neis = itlists_gpu.avg_neis
 	m2l_size = length(itlists_gpu.m2l_lists)
 	p2p_size = length(itlists_gpu.p2p_lists)
 	
@@ -145,21 +144,21 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
                                                         p_avg)
 	CUDA.synchronize()
 	end_time = time_ns()
-	GPU_M2L_time = end_time - start_time
+	M2L_computation_time = end_time - start_time
 	
 	start_time = end_time
     d_p2p_lists = CuArray(itlists_gpu.p2p_lists)
     d_p2p_lists_ptrs = CuArray(itlists_gpu.p2p_lists_ptrs)
     np2pgroup = itlists_gpu.np2pgroup
-	P2P_data_transfer = end_time - start_time
 	end_time = time_ns()
+	P2P_data_transfer = end_time - start_time
 	
 	start_time = end_time
     @cuda blocks=np2pgroup threads=N0 gpu_P2P!(d_pr_positions, d_pr_momenta, d_pr_efields, d_pr_bfields, d_ct_parindices,
                                             d_cl_parlohis, Val(N0), d_p2p_lists, d_p2p_lists_ptrs)
 	CUDA.synchronize()
 	end_time = time_ns()
-	GPU_P2P_time = end_time - start_time
+	P2P_computation_time = end_time - start_time
 	
     # downwardpass
     for l in 1:max_level
@@ -184,6 +183,5 @@ function update_particles_field!(particles::Particles{T}, alg::FMMGPU; lambda) w
 	end_time = time_ns()
 	update_time = end_time - start_time
 	
-	#return data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, avg_neis, m2l_size, p2p_size
-	return data_collection_time, M2L_data_transfer, GPU_M2L_time, P2P_data_transfer, GPU_P2P_time, update_time, min_neis, m2l_size, p2p_size
+	return data_collection_time, M2L_data_transfer, M2L_computation_time, P2P_data_transfer, P2P_computation_time, update_time, avg_neis, m2l_size, p2p_size
 end
